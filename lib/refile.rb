@@ -315,7 +315,7 @@ module Refile
       filename = Rack::Utils.escape(filename)
       filename << "." << format.to_s if format
 
-      base_path = ::File.join("", backend_name, *args.map(&:to_s), file.id.to_s, filename)
+      base_path = ::File.join("", backend_name, *corelate_args(args), file.id.to_s, filename)
 
       ::File.join(app_url(prefix: prefix, host: host), token(base_path), base_path)
     end
@@ -472,6 +472,29 @@ module Refile
       JSON.parse(data.to_s, *args)
     rescue JSON::ParserError
       nil
+    end
+
+    # Corelate given arguments list to prevent from accidentaly
+    # invoking processor with doubled :auto option
+    #
+    # @example
+    #   corelate_args([:fit, :auto, :auto]) -> []
+    #   corelate_args([:fit, 200, :auto]) -> ['fit', '200', 'auto']
+    #
+    # @param [Array] args          Arguments, that comes from method invocation
+    # @raise [RuntimeError]        If {Refile.secret_key} is not set
+    # @return [Array]              Array of strings with corelated values
+
+    private
+
+    def corelate_args(args)
+      processor, args = args.shift, args
+
+      if args.all? { |arg| /^auto$/ === arg.to_s }
+        return [] if [:limit, :fit].include?(processor)
+      end
+
+      [processor, *args].map(&:to_s)
     end
   end
 
