@@ -54,12 +54,14 @@ module Refile
 
     get "/:token/:backend/:processor/*/:id/:file_basename.:extension" do
       halt 404 unless download_allowed?
-      stream_file processor.call(file, *params[:splat].first.split("/"), format: params[:extension])
+      stream_file processor.call(
+        file, *extract_params(params[:splat]), format: params[:extension]
+      )
     end
 
     get "/:token/:backend/:processor/*/:id/:filename" do
       halt 404 unless download_allowed?
-      stream_file processor.call(file, *params[:splat].first.split("/"))
+      stream_file processor.call(file, *extract_params(params[:splat]))
     end
 
     options "/:backend" do
@@ -161,6 +163,18 @@ module Refile
         log_error("Could not find processor: #{name}")
         halt 404
       end
+    end
+
+    def extract_params(input)
+      width, height, *additional = input.join.split("/")
+
+      case params[:processor]
+      when 'limit', 'fit'
+      width &&= nil if /^auto$/ === width
+      height &&= nil if /^auto$/ === height
+      end
+
+      [width, height, *additional]
     end
 
     def log_error(message)
